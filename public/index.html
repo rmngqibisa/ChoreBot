@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChoreBot - Home</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h2>ChoreBot</h2>
+        </div>
+        <nav class="nav-links">
+            <a href="#" onclick="showLogin()">Login</a>
+            <a href="#" onclick="showRegister()">Register</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <section id="landing">
+            <div class="card" style="text-align: center; padding: 50px;">
+                <h1>Welcome to ChoreBot</h1>
+                <p>The easiest way to get things done or earn extra cash.</p>
+                <br>
+                <button class="btn" onclick="showRegister()">Get Started</button>
+            </div>
+        </section>
+
+        <section id="auth-forms" class="hidden">
+            <div class="card">
+                <h2 id="auth-title">Register</h2>
+                <form id="authForm">
+                    <div class="form-group" id="name-group">
+                        <label>Name</label>
+                        <input type="text" id="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label>I want to...</label>
+                        <select id="type">
+                            <option value="user">Get chores done (User)</option>
+                            <option value="provider">Earn money (Provider)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="address-group">
+                        <label>Address</label>
+                        <input type="text" id="address">
+                    </div>
+                    <button type="submit" class="btn" id="auth-btn">Register</button>
+                    <p style="margin-top:10px; text-align:center;">
+                        <a href="#" id="toggle-auth">Switch to Login</a>
+                    </p>
+                </form>
+            </div>
+        </section>
+    </div>
+
+    <script src="client.js"></script>
+    <script>
+        let isRegister = true;
+
+        function showLogin() {
+            isRegister = false;
+            document.getElementById('auth-title').innerText = 'Login';
+            document.getElementById('auth-btn').innerText = 'Login';
+            document.getElementById('name-group').classList.add('hidden');
+            document.getElementById('address-group').classList.add('hidden');
+            document.getElementById('toggle-auth').innerText = 'Switch to Register';
+            showSection('auth-forms');
+        }
+
+        function showRegister() {
+            isRegister = true;
+            document.getElementById('auth-title').innerText = 'Register';
+            document.getElementById('auth-btn').innerText = 'Register';
+            document.getElementById('name-group').classList.remove('hidden');
+            document.getElementById('address-group').classList.remove('hidden');
+            document.getElementById('toggle-auth').innerText = 'Switch to Login';
+            showSection('auth-forms');
+        }
+
+        document.getElementById('toggle-auth').onclick = (e) => {
+            e.preventDefault();
+            if (isRegister) showLogin();
+            else showRegister();
+        };
+
+        document.getElementById('authForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const type = document.getElementById('type').value;
+
+            try {
+                if (isRegister) {
+                    const name = document.getElementById('name').value;
+                    const address = document.getElementById('address').value;
+                    const loc = await getLocation();
+                    const res = await register(name, email, password, type, address, loc.lat, loc.lon);
+                    if (res.error) alert(res.error);
+                    else {
+                        alert('Registration successful! Please login.');
+                        showLogin();
+                    }
+                } else {
+                    const res = await login(email, password, type);
+                    if (res.error) alert(res.error);
+                    else {
+                        localStorage.setItem('user', JSON.stringify(res.user));
+                        window.location.href = res.user.type === 'user' ? 'user.html' : 'provider.html';
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred.');
+            }
+        };
+    </script>
+</body>
+</html>

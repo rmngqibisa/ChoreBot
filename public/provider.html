@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChoreBot - Provider Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h2>ChoreBot <small>(Provider)</small></h2>
+        </div>
+        <nav class="nav-links">
+            <span id="user-name"></span>
+            <a href="#" onclick="logout()">Logout</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h3>Available Chores Nearby</h3>
+        <p>Showing chores within 10km of your registered location.</p>
+        <div id="available-chores" class="chore-list">
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <script src="client.js"></script>
+    <script>
+        currentUser = JSON.parse(localStorage.getItem('user'));
+        if (!currentUser || currentUser.type !== 'provider') window.location.href = 'index.html';
+
+        document.getElementById('user-name').innerText = `Hello, ${currentUser.name}`;
+
+        function logout() {
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+
+        async function loadChores() {
+            const chores = await getAvailableChores();
+            const container = document.getElementById('available-chores');
+            container.innerHTML = '';
+
+            if (chores.length === 0) {
+                container.innerHTML = '<p>No chores found nearby.</p>';
+                return;
+            }
+
+            chores.forEach(chore => {
+                const div = document.createElement('div');
+                div.className = 'chore-card';
+
+                const h4 = document.createElement('h4');
+                h4.textContent = chore.title;
+                div.appendChild(h4);
+
+                const pDesc = document.createElement('p');
+                pDesc.textContent = chore.description;
+                div.appendChild(pDesc);
+
+                const pPay = document.createElement('p');
+                const strongPay = document.createElement('strong');
+                strongPay.textContent = `Payment: $${chore.payment}`;
+                pPay.appendChild(strongPay);
+                div.appendChild(pPay);
+
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-success';
+                btn.textContent = 'Accept Chore';
+                btn.onclick = () => accept(chore.id);
+                div.appendChild(btn);
+
+                container.appendChild(div);
+            });
+        }
+
+        async function accept(id) {
+            const res = await assignChore(id);
+            if (res.error) alert(res.error);
+            else {
+                alert('Chore assigned to you! Go do it!');
+                // In a real app, we'd show "My Jobs" section.
+                // For MVP, just reload to remove it from list.
+                loadChores();
+            }
+        }
+
+        loadChores();
+    </script>
+</body>
+</html>
