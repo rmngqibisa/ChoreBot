@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChoreBot - User Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h2>ChoreBot <small>(User)</small></h2>
+        </div>
+        <nav class="nav-links">
+            <span id="user-name"></span>
+            <a href="#" onclick="logout()">Logout</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h3>Request a Chore</h3>
+            <form id="choreForm">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="title" placeholder="e.g., Mow the lawn" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="description" rows="3" placeholder="Details about the chore..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Payment ($)</label>
+                    <input type="number" id="payment" min="1" required>
+                </div>
+                <button type="submit" class="btn">Post Chore</button>
+            </form>
+        </div>
+
+        <h3>Your Chores</h3>
+        <div id="my-chores" class="chore-list">
+            <!-- Chores will be loaded here -->
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <script src="client.js"></script>
+    <script>
+        currentUser = JSON.parse(localStorage.getItem('user'));
+        if (!currentUser || currentUser.type !== 'user') window.location.href = 'index.html';
+
+        document.getElementById('user-name').innerText = `Hello, ${currentUser.name}`;
+
+        function logout() {
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('choreForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('title').value;
+            const desc = document.getElementById('description').value;
+            const pay = document.getElementById('payment').value;
+
+            const res = await createChore(title, desc, pay);
+            if (res.error) alert(res.error);
+            else {
+                alert('Chore posted! Now confirm payment to make it visible.');
+                loadMyChores(); // Reload
+                e.target.reset();
+            }
+        };
+
+        async function loadMyChores() {
+            const container = document.getElementById('my-chores');
+            container.innerHTML = 'Loading...';
+
+            // We use the new query param logic we just added to server.js
+            const res = await fetch(`${API_URL}/chores?userId=${currentUser.id}`);
+            const myChores = await res.json();
+
+            container.innerHTML = '';
+            if (myChores.length === 0) {
+                container.innerHTML = '<p>You have not posted any chores yet.</p>';
+                return;
+            }
+
+            myChores.forEach(chore => {
+                const div = document.createElement('div');
+                div.className = 'chore-card';
+
+                const h4 = document.createElement('h4');
+                h4.textContent = `${chore.title} (${chore.status})`;
+                div.appendChild(h4);
+
+                const pDesc = document.createElement('p');
+                pDesc.textContent = chore.description;
+                div.appendChild(pDesc);
+
+                const pPay = document.createElement('p');
+                const strongPay = document.createElement('strong');
+                strongPay.textContent = `Payment: $${chore.payment}`;
+                pPay.appendChild(strongPay);
+                div.appendChild(pPay);
+
+                const divAction = document.createElement('div');
+                divAction.style.marginTop = '10px';
+
+                if (chore.status === 'pending') {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-secondary';
+                    btn.textContent = 'Pay & Publish';
+                    btn.onclick = () => pay(chore.id);
+                    divAction.appendChild(btn);
+                } else if (chore.status === 'paid') {
+                    const span = document.createElement('span');
+                    span.style.color = 'green';
+                    span.style.fontWeight = 'bold';
+                    span.textContent = 'Waiting for Provider...';
+                    divAction.appendChild(span);
+                } else if (chore.status === 'assigned') {
+                    const span = document.createElement('span');
+                    span.style.color = 'blue';
+                    span.style.fontWeight = 'bold';
+                    span.textContent = 'Assigned! ';
+                    divAction.appendChild(span);
+
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-success';
+                    btn.textContent = 'Confirm Completion';
+                    btn.onclick = () => markComplete(chore.id);
+                    divAction.appendChild(btn);
+                } else if (chore.status === 'completed') {
+                    const span = document.createElement('span');
+                    span.style.color = 'gray';
+                    span.textContent = 'Completed';
+                    divAction.appendChild(span);
+                }
+
+                div.appendChild(divAction);
+                container.appendChild(div);
+            });
+        }
+
+        async function pay(id) {
+            const res = await payChore(id);
+            if (res.error) alert(res.error);
+            else {
+                alert('Payment confirmed!');
+                loadMyChores();
+            }
+        }
+
+        async function markComplete(id) {
+            const res = await completeChore(id);
+            if (res.error) alert(res.error);
+            else {
+                alert('Chore marked as complete!');
+                loadMyChores();
+            }
+        }
+
+        loadMyChores();
+
+    </script>
+</body>
+</html>
