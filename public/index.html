@@ -95,6 +95,15 @@
 
         document.getElementById('authForm').onsubmit = async (e) => {
             e.preventDefault();
+            const form = e.target;
+            const btn = document.getElementById('auth-btn');
+            const originalBtnText = btn.innerText;
+
+            // Set loading state
+            btn.disabled = true;
+            btn.innerText = 'Processing...';
+            form.setAttribute('aria-busy', 'true');
+
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const type = document.getElementById('type').value;
@@ -105,6 +114,12 @@
                     const address = document.getElementById('address').value;
                     const loc = await getLocation();
                     const res = await register(name, email, password, type, address, loc.lat, loc.lon);
+
+                    // Reset loading state before alert
+                    btn.disabled = false;
+                    btn.innerText = originalBtnText;
+                    form.setAttribute('aria-busy', 'false');
+
                     if (res.error) alert(res.error);
                     else {
                         alert('Registration successful! Please login.');
@@ -112,14 +127,25 @@
                     }
                 } else {
                     const res = await login(email, password, type);
-                    if (res.error) alert(res.error);
-                    else {
+
+                    if (res.error) {
+                        // Reset loading state on error
+                        btn.disabled = false;
+                        btn.innerText = originalBtnText;
+                        form.setAttribute('aria-busy', 'false');
+                        alert(res.error);
+                    } else {
+                        // Don't reset if redirecting, keeps the smooth feeling
                         localStorage.setItem('user', JSON.stringify(res.user));
                         window.location.href = res.user.type === 'user' ? 'user.html' : 'provider.html';
                     }
                 }
             } catch (err) {
                 console.error(err);
+                // Reset loading state on error
+                btn.disabled = false;
+                btn.innerText = originalBtnText;
+                form.setAttribute('aria-busy', 'false');
                 alert('An error occurred.');
             }
         };
