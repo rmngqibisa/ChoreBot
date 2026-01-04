@@ -58,16 +58,35 @@
 
         document.getElementById('choreForm').onsubmit = async (e) => {
             e.preventDefault();
+            const form = e.target;
+            const btn = form.querySelector('button[type="submit"]');
+            const originalBtnText = btn.innerText;
+
+            // Set loading state
+            btn.disabled = true;
+            btn.innerText = 'Posting...';
+            form.setAttribute('aria-busy', 'true');
+
             const title = document.getElementById('title').value;
             const desc = document.getElementById('description').value;
             const pay = document.getElementById('payment').value;
 
-            const res = await createChore(title, desc, pay);
-            if (res.error) alert(res.error);
-            else {
-                alert('Chore posted! Now confirm payment to make it visible.');
-                loadMyChores(); // Reload
-                e.target.reset();
+            try {
+                const res = await createChore(title, desc, pay);
+                if (res.error) alert(res.error);
+                else {
+                    alert('Chore posted! Now confirm payment to make it visible.');
+                    loadMyChores(); // Reload
+                    e.target.reset();
+                }
+            } catch (err) {
+                console.error(err);
+                alert('An error occurred while posting the chore.');
+            } finally {
+                // Reset loading state
+                btn.disabled = false;
+                btn.innerText = originalBtnText;
+                form.setAttribute('aria-busy', 'false');
             }
         };
 
