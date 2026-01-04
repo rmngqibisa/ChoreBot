@@ -169,6 +169,12 @@ app.get('/api/chores', (req, res) => {
 
         availableChores = availableChores.filter(c => {
             if (c.latitude && c.longitude) {
+                // Optimization: Simple Bounding Box check
+                // 1 deg lat ~= 111km. 10km ~= 0.09 deg.
+                // If lat diff is > 0.1, it's definitely > 10km away.
+                // This avoids expensive Trig calculations for distant points.
+                if (Math.abs(providerLat - c.latitude) > 0.1) return false;
+
                 const dist = getDistanceFromLatLonInKm(providerLat, providerLon, c.latitude, c.longitude);
                 return dist <= 10; // 10 km radius
             }
@@ -216,4 +222,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { app, users, providers, chores };
+module.exports = { app, users, providers, chores, getDistanceFromLatLonInKm };
