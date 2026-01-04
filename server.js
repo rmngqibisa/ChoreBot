@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 3000;
@@ -13,6 +14,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 const users = [];
 const providers = [];
 const chores = [];
+
+// Helper function to hash passwords
+function hashPassword(password) {
+    return new Promise((resolve, reject) => {
+        const salt = crypto.randomBytes(16).toString('hex');
+        crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
+            if (err) reject(err);
+            resolve({ salt, hash: derivedKey.toString('hex') });
+        });
+    });
+}
+
+// Helper function to verify passwords
+function verifyPassword(password, salt, hash) {
+    return new Promise((resolve, reject) => {
+        crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
+            if (err) reject(err);
+            resolve(hash === derivedKey.toString('hex'));
+        });
+    });
+}
 
 // Helper function to calculate distance (Haversine Formula)
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -36,7 +58,7 @@ function deg2rad(deg) {
 // Routes
 
 // Register
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { name, email, password, type, address, latitude, longitude } = req.body;
     // Simple validation
     if (!name || !email || !password || !type) {
@@ -44,31 +66,52 @@ app.post('/api/register', (req, res) => {
     }
 
     const id = Date.now().toString();
-    const newUser = { id, name, email, password, type, address, latitude, longitude };
 
-    if (type === 'user') {
-        users.push(newUser);
-    } else if (type === 'provider') {
-        providers.push(newUser);
-    } else {
-        return res.status(400).json({ error: 'Invalid type' });
+    // Hash the password
+    try {
+        const { salt, hash } = await hashPassword(password);
+
+        const newUser = { id, name, email, salt, hash, type, address, latitude, longitude };
+
+        if (type === 'user') {
+            users.push(newUser);
+        } else if (type === 'provider') {
+            providers.push(newUser);
+        } else {
+            return res.status(400).json({ error: 'Invalid type' });
+        }
+
+        // Do not return salt/hash in response
+        const { salt: _, hash: __, ...userResponse } = newUser;
+        res.status(201).json({ message: 'Registration successful', user: userResponse });
+    } catch (err) {
+        res.status(500).json({ error: 'Error hashing password' });
     }
-
-    res.status(201).json({ message: 'Registration successful', user: newUser });
 });
 
 // Login
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { email, password, type } = req.body;
     let user;
     if (type === 'user') {
-        user = users.find(u => u.email === email && u.password === password);
+        user = users.find(u => u.email === email);
     } else {
-        user = providers.find(u => u.email === email && u.password === password);
+        user = providers.find(u => u.email === email);
     }
 
     if (user) {
-        res.json({ message: 'Login successful', user });
+        try {
+            const isValid = await verifyPassword(password, user.salt, user.hash);
+            if (isValid) {
+                // Do not return salt/hash in response
+                const { salt: _, hash: __, ...userResponse } = user;
+                res.json({ message: 'Login successful', user: userResponse });
+            } else {
+                res.status(401).json({ error: 'Invalid credentials' });
+            }
+        } catch (err) {
+            res.status(500).json({ error: 'Error verifying password' });
+        }
     } else {
         res.status(401).json({ error: 'Invalid credentials' });
     }
