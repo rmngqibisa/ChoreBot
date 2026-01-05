@@ -161,26 +161,45 @@ app.get('/api/chores', (req, res) => {
     }
 
     // Otherwise, return available chores for providers
-    let availableChores = chores.filter(c => c.status === 'paid');
+    // Optimization: Combined loop + Longitude bounding box check
+    // We combine the status filter and location filter to iterate once.
 
+    let providerLat, providerLon, latRad, lonThreshold;
     if (latitude && longitude) {
-        const providerLat = parseFloat(latitude);
-        const providerLon = parseFloat(longitude);
+        providerLat = parseFloat(latitude);
+        providerLon = parseFloat(longitude);
+        latRad = deg2rad(providerLat);
+        // Longitude threshold depends on latitude.
+        // 1 deg lon at lat L = 111km * cos(L).
+        // We want ~10km. Threshold = 10 / (111 * cos(L)) ~= 0.09 / cos(L).
+        // Added small buffer (0.12) to be safe.
+        // Cap at 180 (if near pole, check everything).
+        const cosLat = Math.abs(Math.cos(latRad));
+        lonThreshold = cosLat < 0.01 ? 180 : 0.12 / cosLat;
+    }
 
-        availableChores = availableChores.filter(c => {
+    const availableChores = chores.filter(c => {
+        if (c.status !== 'paid') return false;
+
+        if (providerLat !== undefined && providerLon !== undefined) {
             if (c.latitude && c.longitude) {
-                // Optimization: Simple Bounding Box check
-                // 1 deg lat ~= 111km. 10km ~= 0.09 deg.
-                // If lat diff is > 0.1, it's definitely > 10km away.
-                // This avoids expensive Trig calculations for distant points.
+                // Latitude Check
                 if (Math.abs(providerLat - c.latitude) > 0.1) return false;
 
+                // Longitude Check (Handle wrapping)
+                let dLon = Math.abs(providerLon - c.longitude);
+                if (dLon > 180) dLon = 360 - dLon;
+                if (dLon > lonThreshold) return false;
+
+                // Accurate Check
                 const dist = getDistanceFromLatLonInKm(providerLat, providerLon, c.latitude, c.longitude);
-                return dist <= 10; // 10 km radius
+                return dist <= 10;
             }
-            return true; // If chore has no location, maybe show it? Or assume it's global? Let's show it.
-        });
-    }
+            // If chore has no location, include it (global/remote chore)
+            return true;
+        }
+        return true;
+    });
 
     res.json(availableChores);
 });
