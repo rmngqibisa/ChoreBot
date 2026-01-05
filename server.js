@@ -65,7 +65,7 @@ app.post('/api/register', async (req, res) => {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const id = Date.now().toString();
+    const id = crypto.randomUUID();
 
     // Hash the password
     try {
@@ -125,7 +125,7 @@ app.post('/api/chores', (req, res) => {
     }
 
     const chore = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         title,
         description,
         payment,
