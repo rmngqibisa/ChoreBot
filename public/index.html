@@ -30,6 +30,7 @@
         <section id="auth-forms" class="hidden">
             <div class="card">
                 <h2 id="auth-title">Register</h2>
+                <div id="auth-message" class="alert" role="alert"></div>
                 <form id="authForm">
                     <div class="form-group" id="name-group">
                         <label for="name">Name</label>
@@ -93,8 +94,20 @@
             else showRegister();
         };
 
+        function showMessage(msg, type = 'error') {
+            const el = document.getElementById('auth-message');
+            el.textContent = msg;
+            el.className = `alert alert-${type}`;
+            el.style.display = 'block';
+        }
+
+        function hideMessage() {
+            document.getElementById('auth-message').style.display = 'none';
+        }
+
         document.getElementById('authForm').onsubmit = async (e) => {
             e.preventDefault();
+            hideMessage();
             const form = e.target;
             const btn = document.getElementById('auth-btn');
             const originalBtnText = btn.innerText;
@@ -115,15 +128,19 @@
                     const loc = await getLocation();
                     const res = await register(name, email, password, type, address, loc.lat, loc.lon);
 
-                    // Reset loading state before alert
+                    // Reset loading state
                     btn.disabled = false;
                     btn.innerText = originalBtnText;
                     form.setAttribute('aria-busy', 'false');
 
-                    if (res.error) alert(res.error);
-                    else {
-                        alert('Registration successful! Please login.');
-                        showLogin();
+                    if (res.error) {
+                        showMessage(res.error, 'error');
+                    } else {
+                        showMessage('Registration successful! Please login.', 'success');
+                        setTimeout(() => {
+                            showLogin();
+                            hideMessage(); // clear success message on switch
+                        }, 2000);
                     }
                 } else {
                     const res = await login(email, password, type);
@@ -133,7 +150,7 @@
                         btn.disabled = false;
                         btn.innerText = originalBtnText;
                         form.setAttribute('aria-busy', 'false');
-                        alert(res.error);
+                        showMessage(res.error, 'error');
                     } else {
                         // Don't reset if redirecting, keeps the smooth feeling
                         localStorage.setItem('user', JSON.stringify(res.user));
@@ -146,7 +163,7 @@
                 btn.disabled = false;
                 btn.innerText = originalBtnText;
                 form.setAttribute('aria-busy', 'false');
-                alert('An error occurred.');
+                showMessage('An error occurred. Please try again.', 'error');
             }
         };
     </script>
