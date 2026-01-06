@@ -14,6 +14,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 const users = [];
 const providers = [];
 const chores = [];
+const sessions = new Map();
+
+// Authentication Middleware
+function authenticate(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) return res.status(401).json({ error: 'Unauthorized: No token provided' });
+
+    const session = sessions.get(token);
+    if (!session) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+
+    req.user = session; // { id, type }
+    next();
+}
 
 // Helper function to hash passwords
 function hashPassword(password) {
@@ -103,9 +118,13 @@ app.post('/api/login', async (req, res) => {
         try {
             const isValid = await verifyPassword(password, user.salt, user.hash);
             if (isValid) {
+                // Create session
+                const token = crypto.randomUUID();
+                sessions.set(token, { id: user.id, type: user.type });
+
                 // Do not return salt/hash in response
                 const { salt: _, hash: __, ...userResponse } = user;
-                res.json({ message: 'Login successful', user: userResponse });
+                res.json({ message: 'Login successful', user: { ...userResponse, token } });
             } else {
                 res.status(401).json({ error: 'Invalid credentials' });
             }
@@ -118,9 +137,12 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Create Chore
-app.post('/api/chores', (req, res) => {
-    const { title, description, payment, userId, latitude, longitude } = req.body;
-    if (!title || !description || !payment || !userId) {
+app.post('/api/chores', authenticate, (req, res) => {
+    const { title, description, payment, latitude, longitude } = req.body;
+
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Only users can create chores' });
+
+    if (!title || !description || !payment) {
         return res.status(400).json({ error: 'Missing fields' });
     }
 
@@ -129,7 +151,7 @@ app.post('/api/chores', (req, res) => {
         title,
         description,
         payment,
-        userId,
+        userId: req.user.id,
         status: 'pending', // pending, paid, assigned, completed
         assignedTo: null,
         latitude,
@@ -141,21 +163,25 @@ app.post('/api/chores', (req, res) => {
 });
 
 // Pay for Chore (Confirm Payment)
-app.post('/api/chores/:id/pay', (req, res) => {
+app.post('/api/chores/:id/pay', authenticate, (req, res) => {
     const { id } = req.params;
     const chore = chores.find(c => c.id === id);
     if (!chore) return res.status(404).json({ error: 'Chore not found' });
+
+    if (chore.userId !== req.user.id) return res.status(403).json({ error: 'Not your chore' });
 
     chore.status = 'paid';
     res.json({ message: 'Payment confirmed', chore });
 });
 
 // Get Chores (filtered by user or location)
-app.get('/api/chores', (req, res) => {
+app.get('/api/chores', authenticate, (req, res) => {
     const { latitude, longitude, userId } = req.query;
 
     if (userId) {
-        // If userId is provided, return all chores for that user (User Dashboard)
+        // Ensure user is requesting their own chores
+        if (userId !== req.user.id) return res.status(403).json({ error: 'Cannot view other users chores' });
+
         const userChores = chores.filter(c => c.userId === userId);
         return res.json(userChores);
     }
@@ -205,24 +231,29 @@ app.get('/api/chores', (req, res) => {
 });
 
 // Assign Chore
-app.post('/api/chores/:id/assign', (req, res) => {
+app.post('/api/chores/:id/assign', authenticate, (req, res) => {
     const { id } = req.params;
-    const { providerId } = req.body;
+
+    if (req.user.type !== 'provider') return res.status(403).json({ error: 'Only providers can accept chores' });
 
     const chore = chores.find(c => c.id === id);
     if (!chore) return res.status(404).json({ error: 'Chore not found' });
     if (chore.status !== 'paid') return res.status(400).json({ error: 'Chore is not available (must be paid first)' });
 
-    chore.assignedTo = providerId;
+    chore.assignedTo = req.user.id;
     chore.status = 'assigned';
     res.json({ message: 'Chore assigned', chore });
 });
 
 // Complete Chore
-app.post('/api/chores/:id/complete', (req, res) => {
+app.post('/api/chores/:id/complete', authenticate, (req, res) => {
     const { id } = req.params;
     const chore = chores.find(c => c.id === id);
     if (!chore) return res.status(404).json({ error: 'Chore not found' });
+
+    // Only allow provider or owner to mark complete? Usually provider marks complete, user confirms?
+    // For now, let's say provider marks complete.
+    if (chore.assignedTo !== req.user.id) return res.status(403).json({ error: 'Not assigned to you' });
 
     chore.status = 'completed';
     // Logic to release payment to provider would go here
