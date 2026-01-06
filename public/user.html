@@ -95,8 +95,15 @@
             container.innerHTML = 'Loading...';
 
             // We use the new query param logic we just added to server.js
-            const res = await fetch(`${API_URL}/chores?userId=${currentUser.id}`);
+            const res = await fetch(`${API_URL}/chores?userId=${currentUser.id}`, {
+                headers: getAuthHeader()
+            });
             const myChores = await res.json();
+
+            if (myChores.error) {
+                container.innerHTML = `<p style="color:red">Error: ${myChores.error}</p>`;
+                return;
+            }
 
             container.innerHTML = '';
             if (myChores.length === 0) {

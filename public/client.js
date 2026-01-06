@@ -26,14 +26,21 @@ async function login(email, password, type) {
     return res.json();
 }
 
+function getAuthHeader() {
+    if (!currentUser || !currentUser.token) return {};
+    return { 'Authorization': `Bearer ${currentUser.token}` };
+}
+
 async function createChore(title, description, payment) {
     if (!currentUser) return;
     const res = await fetch(`${API_URL}/chores`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader()
+        },
         body: JSON.stringify({
             title, description, payment,
-            userId: currentUser.id,
             latitude: currentUser.latitude,
             longitude: currentUser.longitude
         })
@@ -43,14 +50,17 @@ async function createChore(title, description, payment) {
 
 async function payChore(choreId) {
     const res = await fetch(`${API_URL}/chores/${choreId}/pay`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAuthHeader()
     });
     return res.json();
 }
 
 async function getAvailableChores() {
     if (!currentUser) return [];
-    const res = await fetch(`${API_URL}/chores?latitude=${currentUser.latitude}&longitude=${currentUser.longitude}`);
+    const res = await fetch(`${API_URL}/chores?latitude=${currentUser.latitude}&longitude=${currentUser.longitude}`, {
+        headers: getAuthHeader()
+    });
     return res.json();
 }
 
@@ -58,15 +68,18 @@ async function assignChore(choreId) {
     if (!currentUser) return;
     const res = await fetch(`${API_URL}/chores/${choreId}/assign`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerId: currentUser.id })
+        headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader()
+        }
     });
     return res.json();
 }
 
 async function completeChore(choreId) {
     const res = await fetch(`${API_URL}/chores/${choreId}/complete`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAuthHeader()
     });
     return res.json();
 }
