@@ -12,4 +12,53 @@ function deg2rad(deg) {
   return deg * (Math.PI/180)
 }
 
-module.exports = { getDistanceFromLatLonInKm, deg2rad };
+// Simple in-memory Rate Limiter
+class RateLimiter {
+    constructor(windowMs, maxRequests) {
+        this.windowMs = windowMs;
+        this.maxRequests = maxRequests;
+        this.requests = new Map();
+
+        // Cleanup interval to prevent memory leaks
+        setInterval(() => this.cleanup(), 60000);
+    }
+
+    cleanup() {
+        const now = Date.now();
+        for (const [ip, data] of this.requests.entries()) {
+            if (now - data.startTime > this.windowMs) {
+                this.requests.delete(ip);
+            }
+        }
+    }
+
+    middleware() {
+        return (req, res, next) => {
+            const ip = req.ip;
+            const now = Date.now();
+
+            if (!this.requests.has(ip)) {
+                this.requests.set(ip, { count: 1, startTime: now });
+                return next();
+            }
+
+            const requestData = this.requests.get(ip);
+
+            if (now - requestData.startTime > this.windowMs) {
+                // Reset window
+                requestData.count = 1;
+                requestData.startTime = now;
+                return next();
+            }
+
+            if (requestData.count >= this.maxRequests) {
+                return res.status(429).json({ error: 'Too many requests, please try again later.' });
+            }
+
+            requestData.count++;
+            next();
+        };
+    }
+}
+
+module.exports = { getDistanceFromLatLonInKm, deg2rad, RateLimiter };
