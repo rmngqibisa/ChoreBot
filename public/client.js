@@ -8,6 +8,28 @@ function showSection(id) {
     document.getElementById(id).classList.remove('hidden');
 }
 
+// Toast Notification System
+function showToast(msg, type = 'info') {
+    let box = document.getElementById('toast-box');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'toast-box';
+        // Use inline style to reduce CSS file size dependency if desired, but we have CSS
+        document.body.appendChild(box);
+    }
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    el.setAttribute('role', 'alert');
+    el.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+    box.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 300);
+    }, 3000);
+}
+
 async function register(name, email, password, type, address, lat, lon) {
     const res = await fetch(`${API_URL}/register`, {
         method: 'POST',
