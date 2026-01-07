@@ -47,6 +47,9 @@
                 return;
             }
 
+            // Optimization: Use DocumentFragment to batch DOM insertions and minimize reflows
+            const fragment = document.createDocumentFragment();
+
             chores.forEach(chore => {
                 const div = document.createElement('div');
                 div.className = 'chore-card';
@@ -71,8 +74,10 @@
                 btn.onclick = () => accept(chore.id);
                 div.appendChild(btn);
 
-                container.appendChild(div);
+                fragment.appendChild(div);
             });
+
+            container.appendChild(fragment);
         }
 
         async function accept(id) {
