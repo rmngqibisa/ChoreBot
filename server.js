@@ -2,12 +2,26 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const crypto = require('crypto');
-const { getDistanceFromLatLonInKm, deg2rad } = require('./utils');
+const { getDistanceFromLatLonInKm, deg2rad, RateLimiter } = require('./utils');
 
 const app = express();
 const PORT = 3000;
 
+const loginLimiter = new RateLimiter(15 * 60 * 1000, 5); // 5 attempts per 15 minutes
+
+// 2. Security Headers Middleware
+function securityHeaders(req, res, next) {
+    // Prevent MIME type sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Prevent clickjacking
+    res.setHeader('X-Frame-Options', 'DENY');
+    // Content Security Policy
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+    next();
+}
+
 // Middleware
+app.use(securityHeaders);
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -87,7 +101,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Login
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter.middleware(), async (req, res) => {
     const { email, password, type } = req.body;
     let user;
     if (type === 'user') {
