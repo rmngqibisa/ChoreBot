@@ -11,3 +11,8 @@ This journal documents critical security learnings and decisions.
 **Vulnerability:** The API lacked authentication checks and trusted user input for sensitive operations (e.g., creating chores for other users by spoofing `userId`).
 **Learning:** Relying on client-side state for identity is insecure. Always validate identity on the server using a secure session or token mechanism.
 **Prevention:** Implemented a session-based authentication system. All sensitive endpoints now verify a Bearer token and derive the user identity from the server-side session store, ignoring any user-provided IDs in the request body.
+
+## 2024-05-24 - Rate Limiting Missing on Auth Endpoints
+**Vulnerability:** No rate limiting on `/api/login` and `/api/register` allowed brute-force password attacks.
+**Learning:** Even with secure hashing, unlimited attempts allow attackers to guess weak passwords or spam the registration endpoint to cause DoS/resource exhaustion.
+**Prevention:** Implemented a custom in-memory `RateLimiter` class (Fixed Window Counter) to limit requests per IP address on sensitive endpoints.
