@@ -12,4 +12,47 @@ function deg2rad(deg) {
   return deg * (Math.PI/180)
 }
 
-module.exports = { getDistanceFromLatLonInKm, deg2rad };
+class RateLimiter {
+    constructor(windowMs, maxRequests) {
+        this.windowMs = windowMs;
+        this.maxRequests = maxRequests;
+        this.requests = new Map();
+
+        // Cleanup interval: remove expired entries every minute
+        setInterval(() => this.cleanup(), 60000);
+    }
+
+    check(ip) {
+        const now = Date.now();
+        if (!this.requests.has(ip)) {
+            this.requests.set(ip, { count: 1, startTime: now });
+            return true;
+        }
+
+        const data = this.requests.get(ip);
+        if (now - data.startTime > this.windowMs) {
+            // Reset window
+            data.count = 1;
+            data.startTime = now;
+            return true;
+        }
+
+        if (data.count < this.maxRequests) {
+            data.count++;
+            return true;
+        }
+
+        return false;
+    }
+
+    cleanup() {
+        const now = Date.now();
+        for (const [ip, data] of this.requests.entries()) {
+            if (now - data.startTime > this.windowMs) {
+                this.requests.delete(ip);
+            }
+        }
+    }
+}
+
+module.exports = { getDistanceFromLatLonInKm, deg2rad, RateLimiter };
