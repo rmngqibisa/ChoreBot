@@ -97,3 +97,48 @@ function getLocation() {
         }
     });
 }
+
+// Toast Notification System
+function showToast(message, type = 'info', duration = 3000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
+
+    const text = document.createElement('span');
+    text.textContent = message;
+    toast.appendChild(text);
+
+    // Add close button for accessibility
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Close notification');
+    closeBtn.onclick = () => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            toast.remove();
+            if (container.children.length === 0 && container.parentNode) container.remove();
+        }, 300);
+    };
+    toast.appendChild(closeBtn);
+
+    container.appendChild(toast);
+
+    // Auto remove
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                toast.remove();
+                if (container.children.length === 0 && container.parentNode) container.remove();
+            }, 300); // Wait for fade out
+        }
+    }, duration);
+}
