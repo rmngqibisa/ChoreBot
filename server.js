@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const crypto = require('crypto');
-const { getDistanceFromLatLonInKm, deg2rad } = require('./utils');
+const { getDistanceFromLatLonInKm, deg2rad, RateLimiter } = require('./utils');
 
 const app = express();
 const PORT = 3000;
@@ -10,6 +10,17 @@ const PORT = 3000;
 // Middleware
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Rate Limiter for Auth Routes
+const authLimiter = new RateLimiter(100, 15 * 60 * 1000); // 100 requests per 15 minutes
+
+const rateLimitMiddleware = (req, res, next) => {
+    if (authLimiter.check(req.ip)) {
+        next();
+    } else {
+        res.status(429).json({ error: 'Too many requests, please try again later.' });
+    }
+};
 
 // In-memory data
 const users = [];
@@ -55,7 +66,7 @@ function verifyPassword(password, salt, hash) {
 // Routes
 
 // Register
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', rateLimitMiddleware, async (req, res) => {
     const { name, email, password, type, address, latitude, longitude } = req.body;
     // Simple validation
     if (!name || !email || !password || !type) {
@@ -87,7 +98,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Login
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', rateLimitMiddleware, async (req, res) => {
     const { email, password, type } = req.body;
     let user;
     if (type === 'user') {
