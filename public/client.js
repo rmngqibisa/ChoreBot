@@ -97,3 +97,22 @@ function getLocation() {
         }
     });
 }
+
+// Toast notification helper
+function showToast(message, type = 'success') {
+    // Remove existing toast if any to prevent stacking overflow, or stack them?
+    // For simplicity, let's remove existing ones or just append.
+    // Let's allow stacking but maybe limit it? For now, standard append is fine.
+
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} toast`;
+    toast.textContent = message;
+    toast.setAttribute('role', 'alert');
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.5s ease-out';
+        setTimeout(() => toast.remove(), 500);
+    }, 3000);
+}
