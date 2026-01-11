@@ -73,15 +73,15 @@
 
             try {
                 const res = await createChore(title, desc, pay);
-                if (res.error) alert(res.error);
+                if (res.error) showToast(res.error, 'error');
                 else {
-                    alert('Chore posted! Now confirm payment to make it visible.');
+                    showToast('Chore posted! Now confirm payment to make it visible.', 'success');
                     loadMyChores(); // Reload
                     e.target.reset();
                 }
             } catch (err) {
                 console.error(err);
-                alert('An error occurred while posting the chore.');
+                showToast('An error occurred while posting the chore.', 'error');
             } finally {
                 // Reset loading state
                 btn.disabled = false;
@@ -170,18 +170,18 @@
 
         async function pay(id) {
             const res = await payChore(id);
-            if (res.error) alert(res.error);
+            if (res.error) showToast(res.error, 'error');
             else {
-                alert('Payment confirmed!');
+                showToast('Payment confirmed!', 'success');
                 loadMyChores();
             }
         }
 
         async function markComplete(id) {
             const res = await completeChore(id);
-            if (res.error) alert(res.error);
+            if (res.error) showToast(res.error, 'error');
             else {
-                alert('Chore marked as complete!');
+                showToast('Chore marked as complete!', 'success');
                 loadMyChores();
             }
         }
