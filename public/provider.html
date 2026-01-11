@@ -77,9 +77,9 @@
 
         async function accept(id) {
             const res = await assignChore(id);
-            if (res.error) alert(res.error);
+            if (res.error) showToast(res.error, 'error');
             else {
-                alert('Chore assigned to you! Go do it!');
+                showToast('Chore assigned to you! Go do it!', 'success');
                 // In a real app, we'd show "My Jobs" section.
                 // For MVP, just reload to remove it from list.
                 loadChores();

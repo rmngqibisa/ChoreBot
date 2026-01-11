@@ -97,3 +97,30 @@ function getLocation() {
         }
     });
 }
+
+// Toast Notifications
+function showToast(msg, type = 'info') {
+    let box = document.getElementById('toast-box');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'toast-box';
+        document.body.appendChild(box);
+    }
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.setAttribute('role', 'alert');
+    el.innerHTML = `<span style="flex:1">${msg}</span>`;
+
+    const btn = document.createElement('button');
+    btn.innerHTML = '&times;';
+    btn.onclick = () => removeToast(el);
+    el.appendChild(btn);
+    box.appendChild(el);
+    setTimeout(() => removeToast(el), 5000);
+}
+
+function removeToast(el) {
+    if (el.classList.contains('hide')) return;
+    el.classList.add('hide');
+    el.addEventListener('animationend', () => el.remove());
+}

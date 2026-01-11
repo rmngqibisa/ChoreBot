@@ -5,6 +5,7 @@
     --background-color: #f8f9fa;
     --text-color: #333;
     --card-bg: #fff;
+    --error-color: #d32f2f;
 }
 
 body {
@@ -137,3 +138,19 @@ textarea:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
 }
+
+#toast-box {
+    position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px;
+}
+.toast {
+    background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; display: flex; align-items: center; gap: 10px;
+    min-width: 250px; animation: slideIn 0.3s forwards; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.toast.success { background: var(--success-color); }
+.toast.error { background: var(--error-color); }
+.toast.info { background: var(--primary-color); }
+.toast button { background: none; border: none; color: inherit; font-size: 1.2rem; cursor: pointer; padding: 0; opacity: 0.8; }
+.toast.hide { animation: fadeOut 0.3s forwards; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeOut { to { opacity: 0; transform: translateY(-20px); } }
+@media (max-width: 600px) { #toast-box { left: 10px; right: 10px; bottom: 10px; } }
