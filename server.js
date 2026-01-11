@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // In-memory data
 const users = [];
 const providers = [];
-const chores = [];
+const chores = new Map();
 const sessions = new Map();
 
 // Authentication Middleware
@@ -140,14 +140,14 @@ app.post('/api/chores', authenticate, (req, res) => {
         longitude
     };
 
-    chores.push(chore);
+    chores.set(chore.id, chore);
     res.status(201).json({ message: 'Chore created', chore });
 });
 
 // Pay for Chore (Confirm Payment)
 app.post('/api/chores/:id/pay', authenticate, (req, res) => {
     const { id } = req.params;
-    const chore = chores.find(c => c.id === id);
+    const chore = chores.get(id);
     if (!chore) return res.status(404).json({ error: 'Chore not found' });
 
     if (chore.userId !== req.user.id) return res.status(403).json({ error: 'Not your chore' });
@@ -164,7 +164,12 @@ app.get('/api/chores', authenticate, (req, res) => {
         // Ensure user is requesting their own chores
         if (userId !== req.user.id) return res.status(403).json({ error: 'Cannot view other users chores' });
 
-        const userChores = chores.filter(c => c.userId === userId);
+        const userChores = [];
+        for (const c of chores.values()) {
+            if (c.userId === userId) {
+                userChores.push(c);
+            }
+        }
         return res.json(userChores);
     }
 
@@ -186,28 +191,28 @@ app.get('/api/chores', authenticate, (req, res) => {
         lonThreshold = cosLat < 0.01 ? 180 : 0.12 / cosLat;
     }
 
-    const availableChores = chores.filter(c => {
-        if (c.status !== 'paid') return false;
+    const availableChores = [];
+    for (const c of chores.values()) {
+        if (c.status !== 'paid') continue;
 
         if (providerLat !== undefined && providerLon !== undefined) {
             if (c.latitude && c.longitude) {
                 // Latitude Check
-                if (Math.abs(providerLat - c.latitude) > 0.1) return false;
+                if (Math.abs(providerLat - c.latitude) > 0.1) continue;
 
                 // Longitude Check (Handle wrapping)
                 let dLon = Math.abs(providerLon - c.longitude);
                 if (dLon > 180) dLon = 360 - dLon;
-                if (dLon > lonThreshold) return false;
+                if (dLon > lonThreshold) continue;
 
                 // Accurate Check
                 const dist = getDistanceFromLatLonInKm(providerLat, providerLon, c.latitude, c.longitude);
-                return dist <= 10;
+                if (dist > 10) continue;
             }
-            // If chore has no location, include it (global/remote chore)
-            return true;
+            // If chore has no location, include it (global/remote chore) or if it passed distance check
         }
-        return true;
-    });
+        availableChores.push(c);
+    }
 
     res.json(availableChores);
 });
@@ -218,7 +223,7 @@ app.post('/api/chores/:id/assign', authenticate, (req, res) => {
 
     if (req.user.type !== 'provider') return res.status(403).json({ error: 'Only providers can accept chores' });
 
-    const chore = chores.find(c => c.id === id);
+    const chore = chores.get(id);
     if (!chore) return res.status(404).json({ error: 'Chore not found' });
     if (chore.status !== 'paid') return res.status(400).json({ error: 'Chore is not available (must be paid first)' });
 
@@ -230,7 +235,7 @@ app.post('/api/chores/:id/assign', authenticate, (req, res) => {
 // Complete Chore
 app.post('/api/chores/:id/complete', authenticate, (req, res) => {
     const { id } = req.params;
-    const chore = chores.find(c => c.id === id);
+    const chore = chores.get(id);
     if (!chore) return res.status(404).json({ error: 'Chore not found' });
 
     // Only allow provider or owner to mark complete? Usually provider marks complete, user confirms?
