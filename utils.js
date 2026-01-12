@@ -12,4 +12,48 @@ function deg2rad(deg) {
   return deg * (Math.PI/180)
 }
 
-module.exports = { getDistanceFromLatLonInKm, deg2rad };
+class RateLimiter {
+    constructor(limit, windowMs) {
+        this.limit = limit;
+        this.windowMs = windowMs;
+        this.requests = new Map();
+        // Automatic cleanup every minute
+        this.interval = setInterval(() => this.cleanup(), 60000);
+        // Unref to prevent blocking process exit if needed (though not critical for server)
+        if (this.interval.unref) this.interval.unref();
+    }
+
+    middleware() {
+        return (req, res, next) => {
+            // Use req.ip which Express handles based on 'trust proxy' setting
+            // Note: If behind a proxy, ensure 'trust proxy' is enabled in the app
+            const ip = req.ip || req.socket.remoteAddress;
+
+            const now = Date.now();
+            const record = this.requests.get(ip);
+
+            if (!record || now > record.expiry) {
+                this.requests.set(ip, { count: 1, expiry: now + this.windowMs });
+                return next();
+            }
+
+            if (record.count >= this.limit) {
+                return res.status(429).json({ error: 'Too many requests, please try again later.' });
+            }
+
+            record.count++;
+            next();
+        };
+    }
+
+    cleanup() {
+        const now = Date.now();
+        for (const [ip, record] of this.requests) {
+            if (now > record.expiry) {
+                this.requests.delete(ip);
+            }
+        }
+    }
+}
+
+module.exports = { getDistanceFromLatLonInKm, deg2rad, RateLimiter };
